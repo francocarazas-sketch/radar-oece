@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar OECE · Licitaciones de saneamiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --papel:#F2F6F7;
+    --ficha:#FFFFFF;
+    --tinta:#10333E;
+    --texto:#33474F;
+    --texto-suave:#5E7079;
+    --agua:#0E8FA3;
+    --agua-oscura:#0B6E7E;
+    --agua-claro:#E1F2F5;
+    --linea:#D5E1E4;
+    --rojo:#B3372F;
+    --ambar:#B36F00;
+    --verde:#2E7D5B;
+    --sombra:0 1px 3px rgba(16,51,62,.08), 0 6px 18px rgba(16,51,62,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    font-family:'Barlow',system-ui,sans-serif;
+    background:var(--papel);
+    color:var(--texto);
+    font-size:15px;
+    line-height:1.5;
+  }
+  a{color:var(--agua-oscura)}
+  button, select, input{font:inherit}
+  :focus-visible{outline:2px solid var(--agua);outline-offset:2px;border-radius:4px}
+
+  /* ---------- cabecera ---------- */
+  header{
+    background:var(--tinta);
+    color:#EAF4F6;
+    padding:26px 20px 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  header::after{ /* isolíneas sutiles, guiño a planos topográficos */
+    content:"";
+    position:absolute;inset:0;
+    background:
+      radial-gradient(ellipse 620px 240px at 88% 120%, transparent 58%, rgba(14,143,163,.28) 59%, transparent 60.5%),
+      radial-gradient(ellipse 520px 190px at 88% 120%, transparent 58%, rgba(14,143,163,.24) 59%, transparent 60.5%),
+      radial-gradient(ellipse 420px 145px at 88% 120%, transparent 58%, rgba(14,143,163,.20) 59%, transparent 60.5%),
+      radial-gradient(ellipse 320px 105px at 88% 120%, transparent 58%, rgba(14,143,163,.16) 59%, transparent 60.5%);
+    pointer-events:none;
+  }
+  .head-inner{max-width:1080px;margin:0 auto;position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
+  h1{
+    font-family:'Barlow Semi Condensed',sans-serif;
+    font-weight:700;font-size:30px;letter-spacing:.4px;
+  }
+  h1 .punto{color:var(--agua)}
+  .subtitulo{font-size:14px;color:#B9D3D9}
+  .actualizado{
+    margin-left:auto;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;color:#8FB4BC;
+  }
+
+  /* ---------- estadísticas ---------- */
+  .stats{max-width:1080px;margin:-14px auto 0;padding:0 20px;position:relative;z-index:2;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .stat{
+    background:var(--ficha);border:1px solid var(--linea);border-radius:10px;
+    padding:12px 16px;box-shadow:var(--sombra);
+  }
+  .stat b{
+    display:block;font-family:'Barlow Semi Condensed',sans-serif;
+    font-size:26px;font-weight:700;color:var(--tinta);line-height:1.1;
+  }
+  .stat span{font-size:12.5px;color:var(--texto-suave)}
+  .stat.nuevas b{color:var(--agua-oscura)}
+
+  /* ---------- filtros ---------- */
+  .filtros{
+    max-width:1080px;margin:18px auto 6px;padding:10px 20px;
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    position:sticky;top:0;z-index:5;background:var(--papel);
+    border-bottom:1px solid var(--linea);
+  }
+  .filtros input[type=search]{
+    flex:2;min-width:200px;padding:9px 12px;
+    border:1px solid var(--linea);border-radius:8px;background:var(--ficha);
+  }
+  .filtros select{
+    flex:1;min-width:140px;padding:9px 10px;
+    border:1px solid var(--linea);border-radius:8px;background:var(--ficha);color:var(--texto);
+  }
+  .contador-resultados{font-size:13px;color:var(--texto-suave);white-space:nowrap}
+
+  /* ---------- fichas ---------- */
+  main{max-width:1080px;margin:0 auto;padding:14px 20px 60px;display:grid;gap:14px}
+  .ficha{
+    background:var(--ficha);
+    border:1px solid var(--linea);
+    border-left:4px solid var(--agua);
+    border-radius:10px;
+    padding:16px 18px 14px;
+    box-shadow:var(--sombra);
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:6px 18px;
+  }
+  .ficha.nueva{border-left-color:var(--agua-oscura)}
+  .sello-nom{
+    grid-column:1/-1;
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  }
+  .nom{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;
+    background:var(--agua-claro);color:var(--agua-oscura);
+    border:1px dashed var(--agua);border-radius:5px;
+    padding:2px 8px;letter-spacing:.2px;
+  }
+  .tag{
+    font-size:11.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
+    padding:2px 8px;border-radius:99px;background:#EDF1F2;color:var(--texto-suave);
+  }
+  .tag.nueva{background:var(--agua-oscura);color:#fff}
+  .titulo-lic{
+    grid-column:1;
+    font-family:'Barlow Semi Condensed',sans-serif;
+    font-weight:600;font-size:17.5px;color:var(--tinta);line-height:1.3;
+  }
+  .meta{grid-column:1;font-size:13.5px;color:var(--texto-suave)}
+  .meta b{color:var(--texto);font-weight:600}
+  .resumen-ia{
+    grid-column:1;font-size:13.5px;color:var(--texto);
+    background:#F7FAF5;border-left:3px solid var(--verde);
+    padding:6px 10px;border-radius:0 6px 6px 0;margin-top:2px;
+  }
+  .lado{
+    grid-column:2;grid-row:2/6;
+    display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;
+    gap:6px;min-width:150px;text-align:right;
+  }
+  .monto{
+    font-family:'IBM Plex Mono',monospace;font-weight:600;
+    font-size:16px;color:var(--tinta);white-space:nowrap;
+  }
+  .monto small{font-size:11px;color:var(--texto-suave);display:block;font-weight:400}
+  .plazo{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;
+    padding:3px 9px;border-radius:6px;white-space:nowrap;
+  }
+  .plazo.ok{background:#EAF5EF;color:var(--verde)}
+  .plazo.pronto{background:#FBF2E0;color:var(--ambar)}
+  .plazo.urgente{background:#FBEAE8;color:var(--rojo)}
+  .plazo.vencido{background:#EDF1F2;color:var(--texto-suave);font-weight:400}
+  .enlaces{display:flex;gap:10px;font-size:13px;margin-top:2px}
+
+  .vacio, .cargando, .error-carga{
+    text-align:center;padding:50px 20px;color:var(--texto-suave);
+    background:var(--ficha);border:1px dashed var(--linea);border-radius:10px;
+  }
+  .error-carga{color:var(--rojo)}
+
+  footer{
+    max-width:1080px;margin:0 auto;padding:0 20px 40px;
+    font-size:12px;color:var(--texto-suave);
+  }
+
+  @media (max-width:640px){
+    .stats{grid-template-columns:1fr 1fr}
+    .stat:first-child{grid-column:1/-1}
+    .ficha{grid-template-columns:1fr}
+    .lado{grid-column:1;grid-row:auto;flex-direction:row;flex-wrap:wrap;
+      align-items:center;justify-content:flex-start;text-align:left;margin-top:4px}
+    .actualizado{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-inner">
+    <h1>Radar OECE<span class="punto">.</span></h1>
+    <div class="subtitulo">Convocatorias de obras de agua y saneamiento · SEACE / Contrataciones Abiertas</div>
+    <div class="actualizado" id="actualizado">cargando…</div>
+  </div>
+</header>
+
+<div class="stats" id="stats" hidden>
+  <div class="stat nuevas"><b id="st-nuevas">–</b><span>nuevas en la última corrida</span></div>
+  <div class="stat"><b id="st-total">–</b><span>convocatorias vigentes en ventana</span></div>
+  <div class="stat"><b id="st-valor">–</b><span>valor referencial acumulado (S/)</span></div>
+</div>
+
+<div class="filtros" id="filtros" hidden>
+  <input type="search" id="f-buscar" placeholder="Buscar por objeto, entidad o nomenclatura…" aria-label="Buscar">
+  <select id="f-region" aria-label="Departamento"><option value="">Todos los departamentos</option></select>
+  <select id="f-plazo" aria-label="Plazo">
+    <option value="">Cualquier plazo</option>
+    <option value="abierto">Con plazo abierto</option>
+    <option value="7">Cierra en ≤ 7 días</option>
+    <option value="3">Cierra en ≤ 3 días</option>
+  </select>
+  <select id="f-orden" aria-label="Ordenar">
+    <option value="fecha">Más recientes primero</option>
+    <option value="monto">Mayor monto primero</option>
+    <option value="plazo">Cierre más próximo primero</option>
+  </select>
+  <span class="contador-resultados" id="contador"></span>
+</div>
+
+<main id="lista">
+  <div class="cargando">Cargando convocatorias…</div>
+</main>
+
+<footer>
+  Datos: <a href="https://contratacionesabiertas.oece.gob.pe/" rel="noopener">Portal de Contrataciones Abiertas de la Compra Pública — OECE</a>,
+  publicados bajo licencia CC BY 4.0. Este monitor es una herramienta personal sin afiliación al OECE.
+  Verifica siempre la información oficial en la ficha del SEACE antes de tomar decisiones.
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const fmtSoles = new Intl.NumberFormat("es-PE",{maximumFractionDigits:0});
+  const fmtFecha = new Intl.DateTimeFormat("es-PE",{day:"2-digit",month:"short",year:"numeric",timeZone:"America/Lima"});
+  const fmtHora  = new Intl.DateTimeFormat("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"America/Lima"});
+
+  let todas = [];
+
+  function norm(t){
+    return (t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  }
+
+  function diasRestantes(iso){
+    if(!iso) return null;
+    const fin = new Date(iso);
+    if(isNaN(fin)) return null;
+    return Math.ceil((fin - Date.now())/86400000);
+  }
+
+  function chipPlazo(lic){
+    const d = diasRestantes(lic.fecha_limite_ofertas);
+    if(d === null) return '<span class="plazo vencido">sin fecha límite</span>';
+    if(d < 0)  return '<span class="plazo vencido">ofertas cerradas</span>';
+    if(d === 0) return '<span class="plazo urgente">cierra HOY</span>';
+    const cls = d<=3 ? "urgente" : d<=7 ? "pronto" : "ok";
+    return `<span class="plazo ${cls}">cierra en ${d} día${d===1?"":"s"}</span>`;
+  }
+
+  function esNueva(lic, actualizadoISO){
+    if(!lic.fecha_publicacion || !actualizadoISO) return false;
+    return (new Date(actualizadoISO) - new Date(lic.fecha_publicacion)) < 86400000*1.5;
+  }
+
+  function esc(t){
+    const d = document.createElement("div"); d.textContent = t||""; return d.innerHTML;
+  }
+
+  function render(){
+    const q = norm($("f-buscar").value.trim());
+    const reg = $("f-region").value;
+    const plazo = $("f-plazo").value;
+    const orden = $("f-orden").value;
+
+    let lista = todas.filter(l=>{
+      if(reg && l.region !== reg) return false;
+      if(plazo){
+        const d = diasRestantes(l.fecha_limite_ofertas);
+        if(plazo==="abierto" && (d===null || d<0)) return false;
+        if(plazo!=="abierto" && (d===null || d<0 || d>Number(plazo))) return false;
+      }
+      if(q){
+        const texto = norm([l.titulo,l.descripcion,l.entidad,l.nomenclatura,l.region].join(" "));
+        if(!texto.includes(q)) return false;
+      }
+      return true;
+    });
+
+    if(orden==="monto") lista.sort((a,b)=>(b.monto||0)-(a.monto||0));
+    else if(orden==="plazo") lista.sort((a,b)=>{
+      const da=diasRestantes(a.fecha_limite_ofertas), db=diasRestantes(b.fecha_limite_ofertas);
+      return (da===null||da<0?9e9:da) - (db===null||db<0?9e9:db);
+    });
+    else lista.sort((a,b)=>(b.fecha_publicacion||"").localeCompare(a.fecha_publicacion||""));
+
+    $("contador").textContent = `${lista.length} de ${todas.length}`;
+
+    const cont = $("lista");
+    if(!lista.length){
+      cont.innerHTML = '<div class="vacio">No hay convocatorias que coincidan con los filtros. Prueba ampliando la búsqueda o revisa config.json en el repositorio para ajustar los filtros de captura.</div>';
+      return;
+    }
+
+    const actualizadoISO = cont.dataset.actualizado;
+    cont.innerHTML = lista.map(l=>{
+      const nueva = esNueva(l, actualizadoISO);
+      const pub = l.fecha_publicacion ? fmtFecha.format(new Date(l.fecha_publicacion)) : "—";
+      const monto = (l.monto!==null && l.monto!==undefined)
+        ? `${l.moneda==="PEN"?"S/":esc(l.moneda)} ${fmtSoles.format(l.monto)}` : "Monto no publicado";
+      return `
+      <article class="ficha${nueva?" nueva":""}">
+        <div class="sello-nom">
+          <span class="nom">${esc(l.nomenclatura || l.ocid)}</span>
+          ${nueva?'<span class="tag nueva">Nueva</span>':""}
+          ${l.categoria_nombre?`<span class="tag">${esc(l.categoria_nombre)}</span>`:""}
+          ${l.region?`<span class="tag">${esc(l.region)}</span>`:""}
+        </div>
+        <div class="titulo-lic">${esc(l.titulo || l.descripcion || "(sin título)")}</div>
+        <div class="meta"><b>${esc(l.entidad || "Entidad no indicada")}</b> · publicada ${pub}${l.metodo?` · ${esc(l.metodo)}`:""}</div>
+        ${l.resumen_ia?`<div class="resumen-ia">${esc(l.resumen_ia)}</div>`:""}
+        <div class="lado">
+          <div class="monto">${monto}<small>valor referencial</small></div>
+          ${chipPlazo(l)}
+          <div class="enlaces">
+            ${l.url_ocds?`<a href="${esc(l.url_ocds)}" target="_blank" rel="noopener">Ficha OCDS</a>`:""}
+            <a href="${esc(l.url_seace)}" target="_blank" rel="noopener">Buscar en SEACE</a>
+          </div>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  fetch("data.json?v="+Date.now())
+    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(data=>{
+      todas = data.licitaciones || [];
+      $("lista").dataset.actualizado = data.actualizado || "";
+      $("actualizado").textContent = data.actualizado
+        ? "Actualizado: "+fmtHora.format(new Date(data.actualizado))+" (Lima)" : "";
+      $("st-nuevas").textContent = data.nuevas_en_esta_corrida ?? "–";
+      $("st-total").textContent = todas.length;
+      const total = todas.reduce((s,l)=>s+(l.moneda==="PEN"?(l.monto||0):0),0);
+      $("st-valor").textContent = fmtSoles.format(total);
+      $("stats").hidden = false;
+      $("filtros").hidden = false;
+
+      const regiones = [...new Set(todas.map(l=>l.region).filter(Boolean))].sort();
+      $("f-region").innerHTML = '<option value="">Todos los departamentos</option>'+
+        regiones.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
+
+      ["f-buscar","f-region","f-plazo","f-orden"].forEach(id=>
+        $(id).addEventListener("input", render));
+      render();
+    })
+    .catch(err=>{
+      $("lista").innerHTML = `<div class="error-carga">No se pudo cargar data.json (${esc(err.message)}).
+      Si es la primera vez que configuras el repositorio, ejecuta el workflow "Actualizar licitaciones OECE"
+      desde la pestaña Actions de GitHub y espera unos minutos.</div>`;
+      $("actualizado").textContent = "";
+    });
+})();
+</script>
+</body>
+</html>
