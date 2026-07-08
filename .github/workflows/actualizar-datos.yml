@@ -1,0 +1,49 @@
+ame: Actualizar licitaciones OECE
+
+on:
+  schedule:
+    # 10:30 UTC = 5:30 a.m. hora de Lima. Corre todos los días.
+    - cron: "30 10 * * *"
+    # Segunda pasada al mediodía de Lima para captar convocatorias de la mañana.
+    - cron: "0 17 * * *"
+  workflow_dispatch: {}   # permite ejecutarlo manualmente desde la pestaña Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: actualizar-datos
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Consultar API del OECE y generar data.json
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python fetch_licitaciones.py
+
+      - name: Publicar cambios
+        run: |
+          git config user.name "radar-oece-bot"
+          git config user.email "actions@github.com"
+          git add docs/data.json
+          if git diff --cached --quiet; then
+            echo "Sin cambios que publicar."
+          else
+            git commit -m "Actualización automática $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
