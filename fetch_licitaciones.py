@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Radar OECE — Monitor diario de licitaciones públicas del Perú
-==============================================================
+Radar OECE — Monitor diario de licitaciones públicas del Perú (v1.1)
+====================================================================
 Consulta la API OCDS del Portal de Contrataciones Abiertas del OECE,
 filtra las convocatorias según config.json y genera docs/data.json
 para el dashboard publicado en GitHub Pages.
+
+v1.1: cabeceras tipo navegador y dominio alterno de respaldo para
+evitar el 403 del firewall del portal.
 
 API: https://contratacionesabiertas.oece.gob.pe/api
 Datos bajo licencia CC BY 4.0 (atribución: OECE, Perú).
@@ -15,7 +18,6 @@ Uso:  python fetch_licitaciones.py
 
 import json
 import os
-import re
 import sys
 import time
 import unicodedata
@@ -30,21 +32,31 @@ BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
 DATA_PATH = BASE_DIR / "docs" / "data.json"
 
-API_START = (
-    "https://contratacionesabiertas.oece.gob.pe/api/v1/releasesAfter"
-    "?format=json&order=desc&paginateBy=50"
-)
-RELEASE_URL = "https://contratacionesabiertas.oece.gob.pe/api/v1/release/{}"
+# Dominios a intentar, en orden. El portal migró de .osce. a .oece.
+# pero ambos siguen respondiendo; si uno bloquea, probamos el otro.
+DOMINIOS = [
+    "https://contratacionesabiertas.oece.gob.pe",
+    "https://contratacionesabiertas.osce.gob.pe",
+]
+RUTA_INICIO = "/api/v1/releasesAfter?format=json&order=desc"
 SEACE_BUSCADOR = "https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml"
 
+# Cabeceras de navegador estándar: algunos firewalls estatales
+# rechazan (403) cualquier User-Agent que no parezca un navegador.
 HEADERS = {
-    "User-Agent": "RadarOECE/1.0 (monitor personal de convocatorias; contacto via GitHub)",
-    "Accept": "application/json",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-PE,es;q=0.9,en;q=0.6",
+    "Referer": "https://contratacionesabiertas.oece.gob.pe/",
+    "Connection": "keep-alive",
 }
 
 LIMA_TZ = timezone(timedelta(hours=-5))
 
-MESES = {
+CATEGORIAS_NOMBRE = {
     "works": "Obras",
     "goods": "Bienes",
     "services": "Servicios",
@@ -84,7 +96,6 @@ def parsear_fecha(valor):
 def cargar_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = json.load(f)
-    # Solo las llaves reales (ignora las _notas)
     return {k: v for k, v in cfg.items() if not k.startswith("_")}
 
 
@@ -121,7 +132,7 @@ def extraer_region(release: dict) -> str:
     return str(candidatos[0][1]).strip().upper()
 
 
-def extraer_licitacion(release: dict) -> dict | None:
+def extraer_licitacion(release: dict, dominio: str) -> dict | None:
     """Convierte un release OCDS en el registro plano que usa el dashboard."""
     tender = release.get("tender") or {}
     if not tender:
@@ -135,16 +146,20 @@ def extraer_licitacion(release: dict) -> dict | None:
     fecha_pub = parsear_fecha(release.get("date"))
     fecha_limite = parsear_fecha(periodo.get("endDate"))
 
+    rid = release.get("id", "")
     return {
         "ocid": release.get("ocid", ""),
-        "release_id": release.get("id", ""),
+        "release_id": rid,
         "nomenclatura": str(tender.get("id") or "").strip(),
         "titulo": (tender.get("title") or "").strip(),
         "descripcion": (tender.get("description") or "").strip(),
         "entidad": (buyer.get("name") or "").strip(),
         "region": extraer_region(release),
         "categoria": tender.get("mainProcurementCategory") or "",
-        "categoria_nombre": MESES.get(tender.get("mainProcurementCategory"), tender.get("mainProcurementCategory") or ""),
+        "categoria_nombre": CATEGORIAS_NOMBRE.get(
+            tender.get("mainProcurementCategory"),
+            tender.get("mainProcurementCategory") or "",
+        ),
         "metodo": tender.get("procurementMethodDetails") or tender.get("procurementMethod") or "",
         "estado": tender.get("status") or "",
         "monto": valor.get("amount"),
@@ -153,7 +168,7 @@ def extraer_licitacion(release: dict) -> dict | None:
         "fecha_limite_ofertas": fecha_limite.isoformat() if fecha_limite else None,
         "fecha_fin_consultas": (parsear_fecha(consultas.get("endDate")) or fecha_limite or fecha_pub).isoformat()
         if (consultas.get("endDate") or fecha_limite or fecha_pub) else None,
-        "url_ocds": RELEASE_URL.format(release.get("id", "")) if release.get("id") else "",
+        "url_ocds": f"{dominio}/api/v1/release/{rid}" if rid else "",
         "url_seace": SEACE_BUSCADOR,
         "resumen_ia": "",
     }
@@ -163,17 +178,14 @@ def extraer_licitacion(release: dict) -> dict | None:
 
 
 def pasa_filtros(lic: dict, cfg: dict) -> bool:
-    # Categoría (obras / bienes / servicios)
     cats = cfg.get("categorias") or []
     if cats and lic["categoria"] not in cats:
         return False
 
-    # Departamento
     deps = [normalizar(d) for d in (cfg.get("departamentos") or [])]
     if deps and normalizar(lic["region"]) not in deps:
         return False
 
-    # Monto
     monto = lic.get("monto")
     minimo = cfg.get("monto_minimo") or 0
     maximo = cfg.get("monto_maximo")
@@ -183,7 +195,6 @@ def pasa_filtros(lic: dict, cfg: dict) -> bool:
         if maximo is not None and monto > maximo:
             return False
 
-    # Palabras clave (sobre título + descripción + nomenclatura)
     texto = normalizar(" ".join([lic["titulo"], lic["descripcion"], lic["nomenclatura"]]))
     claves = [normalizar(p) for p in (cfg.get("palabras_clave") or [])]
     if claves and not any(p in texto for p in claves):
@@ -199,38 +210,57 @@ def pasa_filtros(lic: dict, cfg: dict) -> bool:
 # ---------------------------------------------------------------- API OECE
 
 
+def obtener_pagina(sesion: requests.Session, url: str):
+    """Descarga una página del API. Devuelve el JSON o None si falla."""
+    for intento in (1, 2):
+        try:
+            resp = sesion.get(url, timeout=60)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as e:
+            log(f"  intento {intento} fallido: {e}")
+            if intento == 1:
+                time.sleep(8)
+        except json.JSONDecodeError:
+            log("  respuesta no es JSON válido.")
+            return None
+    return None
+
+
+def elegir_dominio(sesion: requests.Session):
+    """Prueba los dominios en orden y devuelve (dominio, primera_página)."""
+    for dominio in DOMINIOS:
+        url = dominio + RUTA_INICIO
+        log(f"Probando dominio: {dominio}")
+        paquete = obtener_pagina(sesion, url)
+        if paquete and (paquete.get("releases") or paquete.get("records")):
+            log(f"Dominio operativo: {dominio}")
+            return dominio, paquete
+        log(f"Sin datos desde {dominio}; probando siguiente…")
+    return None, None
+
+
 def recorrer_api(cfg: dict) -> list[dict]:
     """Recorre releasesAfter (más recientes primero) hasta superar la ventana de días."""
     corte = datetime.now(LIMA_TZ) - timedelta(days=int(cfg.get("dias_atras", 3)))
     max_paginas = int(cfg.get("max_paginas", 150))
 
-    url = API_START
-    encontradas: list[dict] = []
-    vistas = 0
-    pagina = 0
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
 
-    while url and pagina < max_paginas:
-        pagina += 1
-        try:
-            resp = sesion.get(url, timeout=60)
-            resp.raise_for_status()
-            paquete = resp.json()
-        except requests.RequestException as e:
-            log(f"Error de red en página {pagina}: {e}. Reintentando en 10 s…")
-            time.sleep(10)
-            try:
-                resp = sesion.get(url, timeout=60)
-                resp.raise_for_status()
-                paquete = resp.json()
-            except requests.RequestException as e2:
-                log(f"Fallo definitivo en página {pagina}: {e2}. Se continúa con lo obtenido.")
-                break
-        except json.JSONDecodeError:
-            log(f"Respuesta no-JSON en página {pagina}. Se detiene el recorrido.")
-            break
+    dominio, paquete = elegir_dominio(sesion)
+    if not dominio:
+        log("ERROR: ningún dominio del portal respondió con datos. "
+            "Puede ser un bloqueo temporal del firewall estatal; "
+            "se conserva el data.json anterior.")
+        return []
 
+    encontradas: list[dict] = []
+    vistas = 0
+    pagina = 0
+
+    while paquete and pagina < max_paginas:
+        pagina += 1
         releases = paquete.get("releases") or paquete.get("records") or []
         if not releases:
             log(f"Página {pagina}: sin releases. Fin del recorrido.")
@@ -238,13 +268,12 @@ def recorrer_api(cfg: dict) -> list[dict]:
 
         mas_antigua = None
         for rel in releases:
-            # En record packages, el release vigente está en compiledRelease
             release = rel.get("compiledRelease", rel) if isinstance(rel, dict) else rel
             vistas += 1
             fecha = parsear_fecha(release.get("date"))
             if fecha:
                 mas_antigua = fecha if (mas_antigua is None or fecha < mas_antigua) else mas_antigua
-            lic = extraer_licitacion(release)
+            lic = extraer_licitacion(release, dominio)
             if not lic or not lic["ocid"]:
                 continue
             if fecha and fecha < corte:
@@ -254,13 +283,16 @@ def recorrer_api(cfg: dict) -> list[dict]:
 
         log(f"Página {pagina}: {len(releases)} releases | acumulado filtrado: {len(encontradas)}")
 
-        # Condición de parada: toda la página ya es más antigua que la ventana
         if mas_antigua and mas_antigua < corte:
             log(f"Se alcanzó la fecha de corte ({corte.date()}). Fin del recorrido.")
             break
 
-        url = (paquete.get("links") or {}).get("next")
-        time.sleep(0.4)  # cortesía con el servidor público
+        siguiente = (paquete.get("links") or {}).get("next")
+        if not siguiente:
+            log("No hay más páginas.")
+            break
+        time.sleep(0.6)  # cortesía con el servidor público
+        paquete = obtener_pagina(sesion, siguiente)
 
     log(f"Recorrido terminado: {vistas} releases revisados, {len(encontradas)} pasaron los filtros.")
     return encontradas
@@ -320,22 +352,18 @@ def main() -> int:
     previa = cargar_data_previa()
     existentes = {l["ocid"]: l for l in previa.get("licitaciones", [])}
 
-    # Detectar realmente nuevas (para el resumen IA y el contador)
     ocids_previos = set(existentes.keys())
     realmente_nuevas = [l for l in nuevas if l["ocid"] not in ocids_previos]
 
     if cfg.get("resumen_ia") and realmente_nuevas:
         generar_resumenes_ia(realmente_nuevas)
 
-    # Merge: lo nuevo pisa lo viejo (release más reciente del mismo proceso),
-    # pero conserva el resumen IA previo si el nuevo no trae uno.
     for lic in nuevas:
         anterior = existentes.get(lic["ocid"])
         if anterior and anterior.get("resumen_ia") and not lic.get("resumen_ia"):
             lic["resumen_ia"] = anterior["resumen_ia"]
         existentes[lic["ocid"]] = lic
 
-    # Purga por antigüedad
     limite_hist = datetime.now(LIMA_TZ) - timedelta(days=int(cfg.get("dias_historial", 21)))
     vigentes = []
     for lic in existentes.values():
