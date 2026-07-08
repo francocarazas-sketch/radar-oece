@@ -1,12 +1,10 @@
-ame: Actualizar licitaciones OECE
+name: Actualizar licitaciones OECE
 
 on:
   schedule:
-    # 10:30 UTC = 5:30 a.m. hora de Lima. Corre todos los días.
     - cron: "30 10 * * *"
-    # Segunda pasada al mediodía de Lima para captar convocatorias de la mañana.
     - cron: "0 17 * * *"
-  workflow_dispatch: {}   # permite ejecutarlo manualmente desde la pestaña Actions
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -44,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Sin cambios que publicar."
           else
-            git commit -m "Actualización automática $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git commit -m "Actualización automática"
             git push
           fi
