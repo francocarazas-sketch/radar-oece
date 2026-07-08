@@ -1,0 +1,49 @@
+{
+  "_comentario": "Edita este archivo para ajustar los filtros del monitor. No necesitas tocar el código Python.",
+
+  "palabras_clave": [
+    "agua potable",
+    "saneamiento",
+    "alcantarillado",
+    "desague",
+    "desagüe",
+    "sistema de agua",
+    "UBS",
+    "unidades basicas de saneamiento",
+    "PTAR",
+    "PTAP",
+    "planta de tratamiento",
+    "reservorio",
+    "captacion",
+    "linea de conduccion",
+    "red de distribucion",
+    "letrinas",
+    "agua y saneamiento"
+  ],
+
+  "_nota_palabras": "Si la lista está vacía [], se incluyen TODAS las licitaciones sin filtro de texto. La búsqueda ignora mayúsculas y tildes.",
+
+  "palabras_excluir": [],
+
+  "categorias": ["works"],
+  "_nota_categorias": "works = obras, goods = bienes, services = servicios. Lista vacía = todas.",
+
+  "departamentos": [],
+  "_nota_departamentos": "Ejemplo: [\"JUNIN\", \"CAJAMARCA\", \"CUSCO\", \"PUNO\"]. Lista vacía = todo el Perú. Sin tildes.",
+
+  "monto_minimo": 0,
+  "monto_maximo": null,
+  "_nota_montos": "En soles. null en monto_maximo = sin límite superior. Útil para acotar según la CMC de la empresa.",
+
+  "dias_atras": 3,
+  "_nota_dias_atras": "Cuántos días hacia atrás busca convocatorias nuevas en cada ejecución.",
+
+  "dias_historial": 21,
+  "_nota_historial": "Cuántos días se conservan las licitaciones en el dashboard antes de eliminarlas.",
+
+  "max_paginas": 150,
+  "_nota_max_paginas": "Límite de seguridad de páginas de la API por ejecución.",
+
+  "resumen_ia": false,
+  "_nota_resumen_ia": "Si es true y configuraste el secret ANTHROPIC_API_KEY en GitHub, Claude genera un resumen ejecutivo de cada licitación nueva."
+}
